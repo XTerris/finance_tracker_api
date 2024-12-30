@@ -47,10 +47,17 @@ def upgrade() -> None:
             server_default=sa.sql.expression.text("now()"),
         ),
     )
-    op.create_foreign_key("user_id_fkey", "transactions", "users", ["user_id"], ["id"], ondelete="CASCADE")
+    op.create_foreign_key(
+        "user_id_fkey",
+        source_table="transactions",
+        referent_table="users",
+        local_cols=["user_id"],
+        remote_cols=["id"],
+        ondelete="CASCADE",
+    )
 
 
 def downgrade() -> None:
-    op.drop_table("users")
-    op.drop_table("transactions")
     op.drop_constraint("user_id_fkey", "transactions", type_="foreignkey")
+    op.drop_table("transactions")
+    op.drop_table("users")
