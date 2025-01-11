@@ -1,6 +1,8 @@
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
+from app.models import Transaction
+from app.oauth2 import create_access_token
 from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy import create_engine
@@ -49,3 +51,46 @@ def test_user(client):
     new_user = res.json()
     new_user["password"] = user_data["password"]
     return new_user
+
+
+@pytest.fixture
+def token(test_user):
+    token = create_access_token(data={"user_id": test_user['id']})
+    return token
+
+
+@pytest.fixture
+def logged_client(client, token):
+    client.headers = {
+        **client.headers,
+        "Authorization": f"Bearer {token}"
+    }
+    return client
+
+
+@pytest.fixture
+def test_transactions(test_user, db_session):
+    data = [
+        {
+            "title": "Salary",
+            "type": "Income",
+            "amount": "20000",
+            "user_id": test_user["id"]
+        },
+        {
+            "title": "Shopping",
+            "type": "Outcome",
+            "amount": "2000",
+            "user_id": test_user["id"]
+        },
+        {
+            "title": "Taxes",
+            "type": "Outcome",
+            "amount": "500",
+            "user_id": test_user["id"]
+        },
+    ]
+    db_session.add_all([Transaction(**trans) for trans in data])
+    db_session.commit()
+    data = db_session.query(Transaction).all()
+    return data
