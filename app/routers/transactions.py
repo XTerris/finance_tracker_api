@@ -31,13 +31,13 @@ def get_transaction(
     user: models.User = Depends(oauth2.get_current_user),
 ):
     trans = db.query(models.Transaction).filter(models.Transaction.id == id).first()
+    if trans == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
+        )
     if trans.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
-    if trans:
-        return trans
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
-    )
+    return trans
 
 
 @router.get("/", response_model=List[schemas.Transaction])
@@ -69,12 +69,16 @@ def update_transaction(
     put_query = db.query(models.Transaction).filter(models.Transaction.id == id)
     trans = put_query.first()
     if trans == None:
-        return HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
         )
     if trans.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
-    put_query.update(updated_trans.model_dump(), synchronize_session=False)
+    updated_trans = updated_trans.model_dump()
+    for i in list(updated_trans.keys()):
+        if updated_trans[i] == None:
+            updated_trans.pop(i)
+    put_query.update(updated_trans, synchronize_session=False)
     db.commit()
     return put_query.first()
 

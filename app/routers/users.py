@@ -44,7 +44,11 @@ def update_user(
         updated_user.password = utils.hash(updated_user.password)
     put_query = db.query(models.User).filter(models.User.id == user.id)
     user = put_query.first()
-    put_query.update(updated_user.model_dump(), synchronize_session=False)
+    updated_user = updated_user.model_dump()
+    for i in list(updated_user.keys()):
+        if updated_user[i] == None:
+            updated_user.pop(i)
+    put_query.update(updated_user, synchronize_session=False)
     db.commit()
     return put_query.first()
 

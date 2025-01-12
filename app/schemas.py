@@ -13,7 +13,7 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    username: Optional[str]
+    username: Optional[str] = None
     password: Optional[str] = None
 
 
@@ -41,8 +41,8 @@ class TransactionCreate(TransactionBase):
 
 
 class TransactionUpdate(BaseModel):
-    title: Optional[str]
-    amount: Optional[float]
+    title: Optional[str] = None
+    amount: Optional[float] = None
 
 
 class Transaction(TransactionBase):
