@@ -30,10 +30,32 @@ class User(UserBase):
         from_attributes = True
 
 
+class CategoryBase(BaseModel):
+    name: str
+
+
+class CategoryCreate(CategoryBase):
+    pass
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+
+
+class Category(CategoryBase):
+    id: int
+    user_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TransactionBase(BaseModel):
     title: str
     type: str
     amount: float
+    category_id: int
 
 
 class TransactionCreate(TransactionBase):
@@ -43,12 +65,14 @@ class TransactionCreate(TransactionBase):
 class TransactionUpdate(BaseModel):
     title: Optional[str] = None
     amount: Optional[float] = None
+    category_id: Optional[int] = None
 
 
 class Transaction(TransactionBase):
     id: int
     done_at: datetime
     user: User
+    category: Category
 
 
 class Token(BaseModel):

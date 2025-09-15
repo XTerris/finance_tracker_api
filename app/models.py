@@ -17,6 +17,19 @@ class User(Base):
     )
 
 
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, nullable=False)
+    name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=True)
+    created_at = Column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    user = relationship("User")
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 
@@ -25,8 +38,10 @@ class Transaction(Base):
     type = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
     user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)
     done_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
 
     user = relationship("User")
+    category = relationship("Category")
