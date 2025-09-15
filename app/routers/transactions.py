@@ -16,7 +16,7 @@ def validate_category_access(category_id: int, user_id: int, db: Session):
             status_code=status.HTTP_404_NOT_FOUND, detail="Category was not found"
         )
     # Allow access to system categories (user_id is None) or user's own categories
-    if category.user_id is not None and category.user_id != user_id:
+    if category.user_id is not None and category.user_id != user_id:  # type: ignore
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed"
         )
@@ -32,7 +32,7 @@ def add_transaction(
     user: models.User = Depends(oauth2.get_current_user),
 ):
     # Validate category access
-    validate_category_access(trans.category_id, user.id, db)
+    validate_category_access(trans.category_id, user.id, db)  # type: ignore
     
     new_trans = models.Transaction(**trans.model_dump())
     new_trans.user_id = user.id
@@ -58,7 +58,7 @@ def get_transaction(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
         )
-    if trans.user_id != user.id:
+    if trans.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
     return trans
 
@@ -96,18 +96,18 @@ def update_transaction(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
         )
-    if trans.user_id != user.id:
+    if trans.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
     
     # If category_id is being updated, validate access
     if updated_trans.category_id is not None:
-        validate_category_access(updated_trans.category_id, user.id, db)
+        validate_category_access(updated_trans.category_id, user.id, db)  # type: ignore
     
     updated_data = updated_trans.model_dump()
     for key in list(updated_data.keys()):
         if updated_data[key] == None:
             updated_data.pop(key)
-    put_query.update(updated_data, synchronize_session=False)
+    put_query.update(updated_data, synchronize_session=False)  # type: ignore
     db.commit()
     
     # Return updated transaction with relationships
@@ -131,7 +131,7 @@ def delete_transaction(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
         )
-    if trans.user_id != user.id:
+    if trans.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
 
     delete_query.delete(synchronize_session=False)

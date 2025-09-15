@@ -36,7 +36,7 @@ def get_category(
             status_code=status.HTTP_404_NOT_FOUND, detail="Category was not found"
         )
     # Allow access to system categories (user_id is None) or user's own categories
-    if category.user_id is not None and category.user_id != user.id:
+    if category.user_id is not None and category.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
     return category
 
@@ -75,14 +75,14 @@ def update_category(
             status_code=status.HTTP_404_NOT_FOUND, detail="Category was not found"
         )
     # Only allow updating user's own categories (not system categories)
-    if category.user_id != user.id:
+    if category.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
     
     updated_data = updated_category.model_dump()
     for key in list(updated_data.keys()):
         if updated_data[key] == None:
             updated_data.pop(key)
-    put_query.update(updated_data, synchronize_session=False)
+    put_query.update(updated_data, synchronize_session=False)  # type: ignore
     db.commit()
     return put_query.first()
 
@@ -100,7 +100,7 @@ def delete_category(
             status_code=status.HTTP_404_NOT_FOUND, detail="Category was not found"
         )
     # Only allow deleting user's own categories (not system categories)
-    if category.user_id != user.id:
+    if category.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
 
     # Check if category is being used by any transactions
