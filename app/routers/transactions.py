@@ -1,11 +1,26 @@
 from fastapi import Depends, Response, status, HTTPException, APIRouter
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from .. import models, schemas, oauth2
 from ..database import get_db
 
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
+
+
+def validate_category_access(category_id: int, user_id: int, db: Session):
+    """Validate that the user can access the specified category"""
+    category = db.query(models.Category).filter(models.Category.id == category_id).first()
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Category was not found"
+        )
+    # Allow access to system categories (user_id is None) or user's own categories
+    if category.user_id is not None and category.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed"
+        )
+    return category
 
 
 @router.post(
@@ -16,6 +31,9 @@ def add_transaction(
     db: Session = Depends(get_db),
     user: models.User = Depends(oauth2.get_current_user),
 ):
+    # Validate category access
+    validate_category_access(trans.category_id, user.id, db)
+    
     new_trans = models.Transaction(**trans.model_dump())
     new_trans.user_id = user.id
     db.add(new_trans)
@@ -30,7 +48,12 @@ def get_transaction(
     db: Session = Depends(get_db),
     user: models.User = Depends(oauth2.get_current_user),
 ):
-    trans = db.query(models.Transaction).filter(models.Transaction.id == id).first()
+    trans = (
+        db.query(models.Transaction)
+        .options(joinedload(models.Transaction.category), joinedload(models.Transaction.user))
+        .filter(models.Transaction.id == id)
+        .first()
+    )
     if trans == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
@@ -49,6 +72,7 @@ def get_all_transactions(
 ):
     trans = (
         db.query(models.Transaction)
+        .options(joinedload(models.Transaction.category), joinedload(models.Transaction.user))
         .filter(
             models.Transaction.user_id == user.id,
             models.Transaction.title.contains(search),
@@ -74,13 +98,25 @@ def update_transaction(
         )
     if trans.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
-    updated_trans = updated_trans.model_dump()
-    for i in list(updated_trans.keys()):
-        if updated_trans[i] == None:
-            updated_trans.pop(i)
-    put_query.update(updated_trans, synchronize_session=False)
+    
+    # If category_id is being updated, validate access
+    if updated_trans.category_id is not None:
+        validate_category_access(updated_trans.category_id, user.id, db)
+    
+    updated_data = updated_trans.model_dump()
+    for key in list(updated_data.keys()):
+        if updated_data[key] == None:
+            updated_data.pop(key)
+    put_query.update(updated_data, synchronize_session=False)
     db.commit()
-    return put_query.first()
+    
+    # Return updated transaction with relationships
+    return (
+        db.query(models.Transaction)
+        .options(joinedload(models.Transaction.category), joinedload(models.Transaction.user))
+        .filter(models.Transaction.id == id)
+        .first()
+    )
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -90,11 +126,12 @@ def delete_transaction(
     user: models.User = Depends(oauth2.get_current_user),
 ):
     delete_query = db.query(models.Transaction).filter(models.Transaction.id == id)
-    if delete_query.first() == None:
+    trans = delete_query.first()
+    if trans == None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
         )
-    if delete_query.first().user_id != user.id:
+    if trans.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
 
     delete_query.delete(synchronize_session=False)
