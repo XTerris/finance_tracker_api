@@ -1,7 +1,7 @@
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
-from app.models import Transaction
+from app.models import Transaction, Category
 from app.oauth2 import create_access_token
 from fastapi.testclient import TestClient
 import pytest
@@ -80,25 +80,54 @@ def logged_client(client, token):
 
 
 @pytest.fixture
-def test_transactions(test_users, db_session):
+def test_categories(test_users, db_session):
+    data = [
+        {
+            "name": "Income",
+            "user_id": test_users[0]["id"],
+        },
+        {
+            "name": "Expenses",
+            "user_id": test_users[0]["id"],
+        },
+        {
+            "name": "Shopping",
+            "user_id": test_users[1]["id"],
+        },
+        {
+            "name": "General",
+            "user_id": None,  # System-wide category
+        },
+    ]
+    db_session.add_all([Category(**cat) for cat in data])
+    db_session.commit()
+    data = db_session.query(Category).all()
+    return data
+
+
+@pytest.fixture
+def test_transactions(test_users, test_categories, db_session):
     data = [
         {
             "title": "Salary",
             "type": "Income",
             "amount": 20000,
             "user_id": test_users[0]["id"],
+            "category_id": test_categories[0].id,  # Income category
         },
         {
             "title": "Shopping",
             "type": "Outcome",
             "amount": 2000,
             "user_id": test_users[0]["id"],
+            "category_id": test_categories[1].id,  # Expenses category
         },
         {
             "title": "Taxes",
             "type": "Outcome",
             "amount": 500,
             "user_id": test_users[1]["id"],
+            "category_id": test_categories[2].id,  # Shopping category
         },
     ]
     db_session.add_all([Transaction(**trans) for trans in data])
