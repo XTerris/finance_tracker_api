@@ -23,6 +23,21 @@ def validate_category_access(category_id: int, user_id: int, db: Session):
     return category
 
 
+def validate_account_access(account_id: int, user_id: int, db: Session):
+    """Validate that the user can access the specified account"""
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Account was not found"
+        )
+    # Only allow access to user's own accounts
+    if account.user_id != user_id:  # type: ignore
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed"
+        )
+    return account
+
+
 @router.post(
     "/", status_code=status.HTTP_201_CREATED, response_model=schemas.Transaction
 )
@@ -33,6 +48,9 @@ def add_transaction(
 ):
     # Validate category access
     validate_category_access(trans.category_id, user.id, db)  # type: ignore
+    
+    # Validate account access
+    validate_account_access(trans.account_id, user.id, db)  # type: ignore
     
     new_trans = models.Transaction(**trans.model_dump())
     new_trans.user_id = user.id
@@ -50,7 +68,11 @@ def get_transaction(
 ):
     trans = (
         db.query(models.Transaction)
-        .options(joinedload(models.Transaction.category), joinedload(models.Transaction.user))
+        .options(
+            joinedload(models.Transaction.category), 
+            joinedload(models.Transaction.user),
+            joinedload(models.Transaction.account)
+        )
         .filter(models.Transaction.id == id)
         .first()
     )
@@ -72,7 +94,11 @@ def get_all_transactions(
 ):
     trans = (
         db.query(models.Transaction)
-        .options(joinedload(models.Transaction.category), joinedload(models.Transaction.user))
+        .options(
+            joinedload(models.Transaction.category), 
+            joinedload(models.Transaction.user),
+            joinedload(models.Transaction.account)
+        )
         .filter(
             models.Transaction.user_id == user.id,
             models.Transaction.title.contains(search),
@@ -103,6 +129,10 @@ def update_transaction(
     if updated_trans.category_id is not None:
         validate_category_access(updated_trans.category_id, user.id, db)  # type: ignore
     
+    # If account_id is being updated, validate access
+    if updated_trans.account_id is not None:
+        validate_account_access(updated_trans.account_id, user.id, db)  # type: ignore
+    
     updated_data = updated_trans.model_dump()
     for key in list(updated_data.keys()):
         if updated_data[key] == None:
@@ -113,7 +143,11 @@ def update_transaction(
     # Return updated transaction with relationships
     return (
         db.query(models.Transaction)
-        .options(joinedload(models.Transaction.category), joinedload(models.Transaction.user))
+        .options(
+            joinedload(models.Transaction.category), 
+            joinedload(models.Transaction.user),
+            joinedload(models.Transaction.account)
+        )
         .filter(models.Transaction.id == id)
         .first()
     )
