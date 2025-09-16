@@ -1,7 +1,7 @@
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from .routers import users, transactions, auth, categories, accounts
+from .routers import users, transactions, auth, categories, accounts, goals
 
 
 app = FastAPI()
@@ -22,6 +22,7 @@ app.include_router(users.router)
 app.include_router(transactions.router)
 app.include_router(categories.router)
 app.include_router(accounts.router)
+app.include_router(goals.router)
 
 
 @app.get("/")
