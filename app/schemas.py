@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -23,11 +23,10 @@ class UserLogin(BaseModel):
 
 
 class User(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class CategoryBase(BaseModel):
@@ -43,12 +42,11 @@ class CategoryUpdate(BaseModel):
 
 
 class Category(CategoryBase):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     user_id: Optional[int] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class TransactionBase(BaseModel):
