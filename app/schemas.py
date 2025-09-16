@@ -49,6 +49,28 @@ class Category(CategoryBase):
     created_at: datetime
 
 
+class AccountBase(BaseModel):
+    name: str
+    balance: float
+
+
+class AccountCreate(AccountBase):
+    pass
+
+
+class AccountUpdate(BaseModel):
+    name: Optional[str] = None
+    balance: Optional[float] = None
+
+
+class Account(AccountBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    user_id: int
+    created_at: datetime
+
+
 class TransactionBase(BaseModel):
     title: str
     type: str

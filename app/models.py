@@ -30,6 +30,20 @@ class Category(Base):
     user = relationship("User")
 
 
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id = Column(Integer, primary_key=True, nullable=False)
+    name = Column(String, nullable=False)
+    balance = Column(Float, nullable=False, default=0.0)
+    user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=False)
+    created_at = Column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+    user = relationship("User")
+
+
 class Transaction(Base):
     __tablename__ = "transactions"
 
