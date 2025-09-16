@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date as Date, timedelta
 
 
 class UserBase(BaseModel):
@@ -110,7 +110,7 @@ class TokenData(BaseModel):
 class GoalBase(BaseModel):
     account_id: int
     target_amount: float
-    deadline: date
+    deadline: Date
 
 
 class GoalCreate(GoalBase):
@@ -120,7 +120,7 @@ class GoalCreate(GoalBase):
 class GoalUpdate(BaseModel):
     account_id: Optional[int] = None
     target_amount: Optional[float] = None
-    deadline: Optional[date] = None
+    deadline: Optional[Date] = None
     is_completed: Optional[bool] = None
 
 
@@ -133,3 +133,32 @@ class Goal(GoalBase):
     created_at: datetime
     user: User
     account: Account
+
+
+class ReminderBase(BaseModel):
+    title: str
+    amount: float
+    date: Date
+    recurrence: Optional[timedelta] = None
+
+
+class ReminderCreate(ReminderBase):
+    pass
+
+
+class ReminderUpdate(BaseModel):
+    title: Optional[str] = None
+    amount: Optional[float] = None
+    date: Optional[Date] = None
+    recurrence: Optional[timedelta] = None
+    is_active: Optional[bool] = None
+
+
+class Reminder(ReminderBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    user_id: int
+    is_active: bool
+    created_at: datetime
+    user: User
