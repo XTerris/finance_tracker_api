@@ -93,6 +93,7 @@ class TestCreateGoal:
                 user_account = acc
                 break
 
+        assert user_account is not None
         goal_data = {
             "account_id": user_account.id,
             "deadline": str(date.today() + timedelta(days=365))
@@ -107,6 +108,7 @@ class TestCreateGoal:
                 user_account = acc
                 break
 
+        assert user_account is not None
         goal_data = {
             "account_id": user_account.id,
             "target_amount": "not_a_number",
@@ -122,6 +124,7 @@ class TestCreateGoal:
                 user_account = acc
                 break
 
+        assert user_account is not None
         goal_data = {
             "account_id": user_account.id,
             "target_amount": 10000.0,
@@ -301,6 +304,8 @@ class TestUpdateGoal:
                 user_goal = goal
                 break
 
+        assert user_goal is not None
+        
         # Find a different account belonging to the same user
         other_account = None
         for acc in test_accounts:
@@ -308,7 +313,6 @@ class TestUpdateGoal:
                 other_account = acc
                 break
 
-        assert user_goal is not None
         assert other_account is not None
         update_data = {"account_id": other_account.id}
         res = logged_client.put(f"/goals/{user_goal.id}", json=update_data)
