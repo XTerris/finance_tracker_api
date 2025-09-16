@@ -1,7 +1,7 @@
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
-from app.models import Transaction, Category
+from app.models import Transaction, Category, Account
 from app.oauth2 import create_access_token
 from fastapi.testclient import TestClient
 import pytest
@@ -103,6 +103,31 @@ def test_categories(test_users, db_session):
     db_session.add_all([Category(**cat) for cat in data])
     db_session.commit()
     data = db_session.query(Category).all()
+    return data
+
+
+@pytest.fixture
+def test_accounts(test_users, db_session):
+    data = [
+        {
+            "name": "Checking Account",
+            "balance": 1000.0,
+            "user_id": test_users[0]["id"],
+        },
+        {
+            "name": "Savings Account",
+            "balance": 5000.0,
+            "user_id": test_users[0]["id"],
+        },
+        {
+            "name": "Credit Card",
+            "balance": -500.0,
+            "user_id": test_users[1]["id"],
+        },
+    ]
+    db_session.add_all([Account(**acc) for acc in data])
+    db_session.commit()
+    data = db_session.query(Account).all()
     return data
 
 
