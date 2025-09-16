@@ -1,13 +1,14 @@
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
-from app.models import Transaction, Category, Account
+from app.models import Transaction, Category, Account, Goal
 from app.oauth2 import create_access_token
 from fastapi.testclient import TestClient
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from urllib.parse import quote_plus
+from datetime import date, timedelta
 
 
 DB_URL = f"postgresql+psycopg2://{quote_plus(settings.DB_USERNAME)}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOSTNAME}:{settings.DB_PORT}/{settings.DB_NAME}_test"
@@ -162,4 +163,35 @@ def test_transactions(test_users, test_categories, test_accounts, db_session):
     db_session.add_all([Transaction(**trans) for trans in data])
     db_session.commit()
     data = db_session.query(Transaction).all()
+    return data
+
+
+@pytest.fixture
+def test_goals(test_users, test_accounts, db_session):
+    data = [
+        {
+            "user_id": test_users[0]["id"],
+            "account_id": test_accounts[0].id,  # Checking Account
+            "target_amount": 10000.0,
+            "deadline": date.today() + timedelta(days=365),  # 1 year from now
+            "is_completed": False,
+        },
+        {
+            "user_id": test_users[0]["id"],
+            "account_id": test_accounts[1].id,  # Savings Account
+            "target_amount": 50000.0,
+            "deadline": date.today() + timedelta(days=730),  # 2 years from now
+            "is_completed": True,
+        },
+        {
+            "user_id": test_users[1]["id"],
+            "account_id": test_accounts[2].id,  # Credit Card (other user)
+            "target_amount": 1000.0,
+            "deadline": date.today() + timedelta(days=90),  # 3 months from now
+            "is_completed": False,
+        },
+    ]
+    db_session.add_all([Goal(**goal) for goal in data])
+    db_session.commit()
+    data = db_session.query(Goal).all()
     return data
