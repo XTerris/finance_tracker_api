@@ -132,7 +132,7 @@ def test_accounts(test_users, db_session):
 
 
 @pytest.fixture
-def test_transactions(test_users, test_categories, db_session):
+def test_transactions(test_users, test_categories, test_accounts, db_session):
     data = [
         {
             "title": "Salary",
@@ -140,6 +140,7 @@ def test_transactions(test_users, test_categories, db_session):
             "amount": 20000,
             "user_id": test_users[0]["id"],
             "category_id": test_categories[0].id,  # Income category
+            "account_id": test_accounts[0].id,  # Checking Account
         },
         {
             "title": "Shopping",
@@ -147,6 +148,7 @@ def test_transactions(test_users, test_categories, db_session):
             "amount": 2000,
             "user_id": test_users[0]["id"],
             "category_id": test_categories[1].id,  # Expenses category
+            "account_id": test_accounts[1].id,  # Savings Account
         },
         {
             "title": "Taxes",
@@ -154,6 +156,7 @@ def test_transactions(test_users, test_categories, db_session):
             "amount": 500,
             "user_id": test_users[1]["id"],
             "category_id": test_categories[2].id,  # Shopping category
+            "account_id": test_accounts[2].id,  # Credit Card
         },
     ]
     db_session.add_all([Transaction(**trans) for trans in data])
