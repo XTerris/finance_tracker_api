@@ -22,7 +22,7 @@ class Category(Base):
 
     id = Column(Integer, primary_key=True, nullable=False)
     name = Column(String, nullable=False)
-    user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
@@ -36,7 +36,7 @@ class Account(Base):
     id = Column(Integer, primary_key=True, nullable=False)
     name = Column(String, nullable=False)
     balance = Column(Float, nullable=False, default=0.0)
-    user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
@@ -51,11 +51,13 @@ class Transaction(Base):
     title = Column(String, nullable=False)
     type = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
-    user_id = Column(Integer, ForeignKey(User.id, ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)
+    account_id = Column(Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False)
     done_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
 
     user = relationship("User")
     category = relationship("Category")
+    account = relationship("Account")

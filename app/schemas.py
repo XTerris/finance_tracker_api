@@ -76,6 +76,7 @@ class TransactionBase(BaseModel):
     type: str
     amount: float
     category_id: int
+    account_id: int
 
 
 class TransactionCreate(TransactionBase):
@@ -86,6 +87,7 @@ class TransactionUpdate(BaseModel):
     title: Optional[str] = None
     amount: Optional[float] = None
     category_id: Optional[int] = None
+    account_id: Optional[int] = None
 
 
 class Transaction(TransactionBase):
@@ -93,6 +95,7 @@ class Transaction(TransactionBase):
     done_at: datetime
     user: User
     category: Category
+    account: Account
 
 
 class Token(BaseModel):

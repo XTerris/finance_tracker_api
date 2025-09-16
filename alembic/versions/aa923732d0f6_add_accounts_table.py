@@ -35,7 +35,26 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
+    
+    # Add account_id column to transactions table
+    op.add_column(
+        "transactions", 
+        sa.Column("account_id", sa.Integer(), nullable=False)
+    )
+    op.create_foreign_key(
+        "fk_transactions_account_id",
+        "transactions",
+        "accounts", 
+        ["account_id"],
+        ["id"],
+        ondelete="CASCADE"
+    )
 
 
 def downgrade() -> None:
+    # Drop foreign key and column from transactions table
+    op.drop_constraint("fk_transactions_account_id", "transactions", type_="foreignkey")
+    op.drop_column("transactions", "account_id")
+    
+    # Drop accounts table
     op.drop_table("accounts")
