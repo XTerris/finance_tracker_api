@@ -1,7 +1,7 @@
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
-from app.models import Transaction, Category, Account, Goal
+from app.models import Transaction, Category, Account, Goal, Reminder
 from app.oauth2 import create_access_token
 from fastapi.testclient import TestClient
 import pytest
@@ -194,4 +194,46 @@ def test_goals(test_users, test_accounts, db_session):
     db_session.add_all([Goal(**goal) for goal in data])
     db_session.commit()
     data = db_session.query(Goal).all()
+    return data
+
+
+@pytest.fixture
+def test_reminders(test_users, db_session):
+    data = [
+        {
+            "user_id": test_users[0]["id"],
+            "title": "Pay rent",
+            "amount": 1200.0,
+            "date": date.today() + timedelta(days=30),
+            "recurrence": timedelta(days=30),  # Monthly
+            "is_active": True,
+        },
+        {
+            "user_id": test_users[0]["id"],
+            "title": "Electricity bill",
+            "amount": 150.0,
+            "date": date.today() + timedelta(days=7),
+            "recurrence": None,  # One-time
+            "is_active": True,
+        },
+        {
+            "user_id": test_users[0]["id"],
+            "title": "Old reminder",
+            "amount": 50.0,
+            "date": date.today() - timedelta(days=10),
+            "recurrence": None,
+            "is_active": False,
+        },
+        {
+            "user_id": test_users[1]["id"],
+            "title": "Other user reminder",
+            "amount": 200.0,
+            "date": date.today() + timedelta(days=5),
+            "recurrence": None,
+            "is_active": True,
+        },
+    ]
+    db_session.add_all([Reminder(**reminder) for reminder in data])
+    db_session.commit()
+    data = db_session.query(Reminder).all()
     return data
