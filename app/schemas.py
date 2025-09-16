@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 
 
 class UserBase(BaseModel):
@@ -105,3 +105,31 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     id: Optional[str] = None
+
+
+class GoalBase(BaseModel):
+    account_id: int
+    target_amount: float
+    deadline: date
+
+
+class GoalCreate(GoalBase):
+    pass
+
+
+class GoalUpdate(BaseModel):
+    account_id: Optional[int] = None
+    target_amount: Optional[float] = None
+    deadline: Optional[date] = None
+    is_completed: Optional[bool] = None
+
+
+class Goal(GoalBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    user_id: int
+    is_completed: bool
+    created_at: datetime
+    user: User
+    account: Account
