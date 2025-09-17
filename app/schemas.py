@@ -1,6 +1,9 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from typing import Optional, List, Generic, TypeVar
 from datetime import datetime, date as Date, timedelta
+
+# Generic type for pagination
+T = TypeVar('T')
 
 
 class UserBase(BaseModel):
@@ -90,6 +93,8 @@ class TransactionUpdate(BaseModel):
 
 
 class Transaction(TransactionBase):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     done_at: datetime
     user: User
@@ -161,3 +166,21 @@ class Reminder(ReminderBase):
     is_active: bool
     created_at: datetime
     user: User
+
+
+class PaginationInfo(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    has_next: bool
+    has_previous: bool
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    pagination: PaginationInfo
+
+
+class TransactionListResponse(BaseModel):
+    items: List[Transaction]
+    pagination: PaginationInfo

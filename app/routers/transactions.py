@@ -1,6 +1,8 @@
-from fastapi import Depends, Response, status, HTTPException, APIRouter
+from fastapi import Depends, Response, status, HTTPException, APIRouter, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import desc, asc, and_
 from typing import List, Optional
+from datetime import datetime
 from .. import models, schemas, oauth2
 from ..database import get_db
 
@@ -85,28 +87,93 @@ def get_transaction(
     return trans
 
 
-@router.get("/", response_model=List[schemas.Transaction])
+@router.get("/", response_model=schemas.TransactionListResponse)
 def get_all_transactions(
     db: Session = Depends(get_db),
     user: models.User = Depends(oauth2.get_current_user),
-    limit: int = 10,
+    limit: int = 50,
+    offset: int = 0,
     search: Optional[str] = "",
+    sort_by: str = Query("done_at", pattern="^(id|title|amount|done_at)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    category_id: Optional[int] = None,
+    account_id: Optional[int] = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
+    min_amount: Optional[float] = None,
+    max_amount: Optional[float] = None,
 ):
-    trans = (
+    # Build filter conditions
+    filters = [models.Transaction.user_id == user.id]
+    
+    # Text search in title
+    if search:
+        filters.append(models.Transaction.title.contains(search))
+    
+    # Category filter
+    if category_id is not None:
+        validate_category_access(category_id, user.id, db)  # type: ignore
+        filters.append(models.Transaction.category_id == category_id)
+    
+    # Account filter
+    if account_id is not None:
+        validate_account_access(account_id, user.id, db)  # type: ignore
+        filters.append(models.Transaction.account_id == account_id)
+    
+    # Date range filters
+    if from_date is not None:
+        filters.append(models.Transaction.done_at >= from_date)
+    if to_date is not None:
+        filters.append(models.Transaction.done_at <= to_date)
+    
+    # Amount range filters
+    if min_amount is not None:
+        filters.append(models.Transaction.amount >= min_amount)
+    if max_amount is not None:
+        filters.append(models.Transaction.amount <= max_amount)
+    
+    # Build the base query
+    base_query = (
         db.query(models.Transaction)
+        .filter(and_(*filters))
+    )
+    
+    # Get total count for pagination
+    total = base_query.count()
+    
+    # Build query with joins for data retrieval
+    query = (
+        base_query
         .options(
             joinedload(models.Transaction.category), 
             joinedload(models.Transaction.user),
             joinedload(models.Transaction.account)
         )
-        .filter(
-            models.Transaction.user_id == user.id,
-            models.Transaction.title.contains(search),
-        )
-        .limit(limit)
-        .all()
     )
-    return trans
+    
+    # Add sorting
+    sort_column = getattr(models.Transaction, sort_by)
+    if sort_order == "desc":
+        query = query.order_by(desc(sort_column))
+    else:
+        query = query.order_by(asc(sort_column))
+    
+    # Apply pagination
+    trans = query.offset(offset).limit(limit).all()
+    
+    # Create pagination info
+    pagination = schemas.PaginationInfo(
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_next=offset + limit < total,
+        has_previous=offset > 0
+    )
+    
+    return schemas.TransactionListResponse(
+        items=[schemas.Transaction.model_validate(t) for t in trans],
+        pagination=pagination
+    )
 
 
 @router.put("/{id}", response_model=schemas.Transaction)
