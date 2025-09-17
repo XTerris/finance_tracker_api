@@ -5,7 +5,12 @@ from .. import models, schemas, utils, oauth2
 from ..database import get_db
 
 
+
 router = APIRouter(prefix="/users", tags=["Users"])
+
+@router.get("/me", response_model=schemas.User)
+def get_current_user(user: models.User = Depends(oauth2.get_current_user)):
+    return user
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.User)

@@ -62,3 +62,18 @@ def test_delete_user_unauthorized(test_user, client):
     res = client.delete("/users/")
     assert res.status_code == 401
     assert res.json().get("detail") == "Not authenticated"
+
+
+def test_get_current_user(test_user, logged_client):
+    res = logged_client.get("/users/me")
+    assert res.status_code == 200
+    user = schemas.User(**res.json())
+    assert user.id == test_user["id"]
+    assert user.username == test_user["username"]
+    assert user.login == test_user["login"]
+
+
+def test_get_current_user_unauthorized(test_user, client):
+    res = client.get("/users/me")
+    assert res.status_code == 401
+    assert res.json().get("detail") == "Not authenticated"
