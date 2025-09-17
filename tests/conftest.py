@@ -137,7 +137,6 @@ def test_transactions(test_users, test_categories, test_accounts, db_session):
     data = [
         {
             "title": "Salary",
-            "type": "Income",
             "amount": 20000,
             "user_id": test_users[0]["id"],
             "category_id": test_categories[0].id,  # Income category
@@ -145,7 +144,6 @@ def test_transactions(test_users, test_categories, test_accounts, db_session):
         },
         {
             "title": "Shopping",
-            "type": "Outcome",
             "amount": 2000,
             "user_id": test_users[0]["id"],
             "category_id": test_categories[1].id,  # Expenses category
@@ -153,7 +151,6 @@ def test_transactions(test_users, test_categories, test_accounts, db_session):
         },
         {
             "title": "Taxes",
-            "type": "Outcome",
             "amount": 500,
             "user_id": test_users[1]["id"],
             "category_id": test_categories[2].id,  # Shopping category

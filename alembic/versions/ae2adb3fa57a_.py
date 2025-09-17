@@ -37,7 +37,6 @@ def upgrade() -> None:
         "transactions",
         sa.Column("id", sa.Integer, primary_key=True, nullable=False),
         sa.Column("title", sa.String, nullable=False),
-        sa.Column("type", sa.String, nullable=False),
         sa.Column("amount", sa.Float, nullable=False),
         sa.Column("user_id", sa.Integer, nullable=False),
         sa.Column(

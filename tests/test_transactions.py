@@ -4,7 +4,6 @@ from app import models, schemas
 def test_create_transaction(logged_client, test_categories, test_accounts):
     transaction_data = {
         "title": "New Transaction",
-        "type": "Income",
         "amount": 1500.0,
         "category_id": test_categories[0].id,
         "account_id": test_accounts[0].id,
@@ -13,7 +12,6 @@ def test_create_transaction(logged_client, test_categories, test_accounts):
     assert res.status_code == 201
     new_transaction = schemas.Transaction(**res.json())
     assert new_transaction.title == transaction_data["title"]
-    assert new_transaction.type == transaction_data["type"]
     assert new_transaction.amount == transaction_data["amount"]
     assert new_transaction.category_id == transaction_data["category_id"]
     assert new_transaction.account_id == transaction_data["account_id"]
@@ -22,7 +20,6 @@ def test_create_transaction(logged_client, test_categories, test_accounts):
 def test_create_transaction_missing_account_id(logged_client, test_categories):
     transaction_data = {
         "title": "Transaction without Account",
-        "type": "Income",
         "amount": 1500.0,
         "category_id": test_categories[0].id,
     }
@@ -33,7 +30,6 @@ def test_create_transaction_missing_account_id(logged_client, test_categories):
 def test_create_transaction_invalid_account_id(logged_client, test_categories):
     transaction_data = {
         "title": "Transaction with Invalid Account",
-        "type": "Income",
         "amount": 1500.0,
         "category_id": test_categories[0].id,
         "account_id": 999999,  # Non-existent account
@@ -56,7 +52,6 @@ def test_create_transaction_forbidden_account(
     assert other_user_account is not None
     transaction_data = {
         "title": "Transaction with Forbidden Account",
-        "type": "Income",
         "amount": 1500.0,
         "category_id": test_categories[0].id,
         "account_id": other_user_account.id,

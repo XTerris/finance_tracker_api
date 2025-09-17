@@ -73,7 +73,6 @@ class Account(AccountBase):
 
 class TransactionBase(BaseModel):
     title: str
-    type: str
     amount: float
     category_id: int
     account_id: int
