@@ -1,8 +1,8 @@
 from fastapi import Depends, Response, status, HTTPException, APIRouter, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, asc, and_
+from sqlalchemy import desc, asc, and_, func
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from .. import models, schemas, oauth2
 from ..database import get_db
 
@@ -12,16 +12,16 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 def validate_category_access(category_id: int, user_id: int, db: Session):
     """Validate that the user can access the specified category"""
-    category = db.query(models.Category).filter(models.Category.id == category_id).first()
+    category = (
+        db.query(models.Category).filter(models.Category.id == category_id).first()
+    )
     if not category:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Category was not found"
         )
     # Allow access to system categories (user_id is None) or user's own categories
     if category.user_id is not None and category.user_id != user_id:  # type: ignore
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
     return category
 
 
@@ -34,9 +34,7 @@ def validate_account_access(account_id: int, user_id: int, db: Session):
         )
     # Only allow access to user's own accounts
     if account.user_id != user_id:  # type: ignore
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
     return account
 
 
@@ -50,16 +48,40 @@ def add_transaction(
 ):
     # Validate category access
     validate_category_access(trans.category_id, user.id, db)  # type: ignore
-    
+
     # Validate account access
     validate_account_access(trans.account_id, user.id, db)  # type: ignore
-    
+
     new_trans = models.Transaction(**trans.model_dump())
     new_trans.user_id = user.id
     db.add(new_trans)
     db.commit()
     db.refresh(new_trans)
     return new_trans
+
+
+@router.get("/updated", response_model=List[int])
+def get_updated_transactions_since(
+    updated_since: datetime,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(oauth2.get_current_user),
+):
+    if updated_since.tzinfo is None:
+        updated_since = updated_since.replace(tzinfo=timezone.utc)
+    else:
+        updated_since = updated_since.astimezone(timezone.utc)
+
+    updated_ids = (
+        db.query(models.Transaction.id)
+        .filter(
+            models.Transaction.user_id == user.id,
+            models.Transaction.updated_at >= updated_since,
+        )
+        .order_by(models.Transaction.updated_at.asc(), models.Transaction.id.asc())
+        .all()
+    )
+
+    return [row[0] for row in updated_ids]
 
 
 @router.get("/{id}", response_model=schemas.Transaction)
@@ -71,9 +93,9 @@ def get_transaction(
     trans = (
         db.query(models.Transaction)
         .options(
-            joinedload(models.Transaction.category), 
+            joinedload(models.Transaction.category),
             joinedload(models.Transaction.user),
-            joinedload(models.Transaction.account)
+            joinedload(models.Transaction.account),
         )
         .filter(models.Transaction.id == id)
         .first()
@@ -105,74 +127,68 @@ def get_all_transactions(
 ):
     # Build filter conditions
     filters = [models.Transaction.user_id == user.id]
-    
+
     # Text search in title
     if search:
         filters.append(models.Transaction.title.contains(search))
-    
+
     # Category filter
     if category_id is not None:
         validate_category_access(category_id, user.id, db)  # type: ignore
         filters.append(models.Transaction.category_id == category_id)
-    
+
     # Account filter
     if account_id is not None:
         validate_account_access(account_id, user.id, db)  # type: ignore
         filters.append(models.Transaction.account_id == account_id)
-    
+
     # Date range filters
     if from_date is not None:
         filters.append(models.Transaction.done_at >= from_date)
     if to_date is not None:
         filters.append(models.Transaction.done_at <= to_date)
-    
+
     # Amount range filters
     if min_amount is not None:
         filters.append(models.Transaction.amount >= min_amount)
     if max_amount is not None:
         filters.append(models.Transaction.amount <= max_amount)
-    
+
     # Build the base query
-    base_query = (
-        db.query(models.Transaction)
-        .filter(and_(*filters))
-    )
-    
+    base_query = db.query(models.Transaction).filter(and_(*filters))
+
     # Get total count for pagination
     total = base_query.count()
-    
+
     # Build query with joins for data retrieval
-    query = (
-        base_query
-        .options(
-            joinedload(models.Transaction.category), 
-            joinedload(models.Transaction.user),
-            joinedload(models.Transaction.account)
-        )
+    query = base_query.options(
+        joinedload(models.Transaction.category),
+        joinedload(models.Transaction.user),
+        joinedload(models.Transaction.account),
     )
-    
+
     # Add sorting
     sort_column = getattr(models.Transaction, sort_by)
     if sort_order == "desc":
         query = query.order_by(desc(sort_column))
     else:
         query = query.order_by(asc(sort_column))
-    
+
     # Apply pagination
     trans = query.offset(offset).limit(limit).all()
-    
+
     # Create pagination info
     pagination = schemas.PaginationInfo(
         total=total,
         limit=limit,
         offset=offset,
         has_next=offset + limit < total,
-        has_previous=offset > 0
+        has_previous=offset > 0,
     )
-    
+
     return schemas.TransactionListResponse(
         items=[schemas.Transaction.model_validate(t) for t in trans],
-        pagination=pagination
+        pagination=pagination,
     )
 
 
@@ -191,29 +207,29 @@ def update_transaction(
         )
     if trans.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
-    
+
     # If category_id is being updated, validate access
     if updated_trans.category_id is not None:
         validate_category_access(updated_trans.category_id, user.id, db)  # type: ignore
-    
+
     # If account_id is being updated, validate access
     if updated_trans.account_id is not None:
         validate_account_access(updated_trans.account_id, user.id, db)  # type: ignore
-    
+
     updated_data = updated_trans.model_dump()
     for key in list(updated_data.keys()):
         if updated_data[key] == None:
             updated_data.pop(key)
     put_query.update(updated_data, synchronize_session=False)  # type: ignore
     db.commit()
-    
+
     # Return updated transaction with relationships
     return (
         db.query(models.Transaction)
         .options(
-            joinedload(models.Transaction.category), 
+            joinedload(models.Transaction.category),
             joinedload(models.Transaction.user),
-            joinedload(models.Transaction.account)
+            joinedload(models.Transaction.account),
         )
         .filter(models.Transaction.id == id)
         .first()

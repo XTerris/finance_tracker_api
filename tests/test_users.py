@@ -15,6 +15,30 @@ def test_create_user(client):
     assert new_user.login == login
 
 
+def test_create_user_duplicate_login(client):
+    username = "test_username"
+    login = "test_login"
+    password = "test_password"
+
+    # Create first user
+    res = client.post(
+        "/users/", json={"username": username, "login": login, "password": password}
+    )
+    assert res.status_code == 201
+
+    # Try to create another user with the same login
+    res = client.post(
+        "/users/",
+        json={
+            "username": "different_username",
+            "login": login,
+            "password": "different_password",
+        },
+    )
+    assert res.status_code == 409
+    assert res.json().get("detail") == "User with this login already exists"
+
+
 def test_get_user(test_user, client):
     res = client.get(f"/users/{test_user['id']}")
     assert res.status_code == 200

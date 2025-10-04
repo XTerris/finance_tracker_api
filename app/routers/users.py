@@ -5,8 +5,8 @@ from .. import models, schemas, utils, oauth2
 from ..database import get_db
 
 
-
 router = APIRouter(prefix="/users", tags=["Users"])
+
 
 @router.get("/me", response_model=schemas.User)
 def get_current_user(user: models.User = Depends(oauth2.get_current_user)):
@@ -15,6 +15,22 @@ def get_current_user(user: models.User = Depends(oauth2.get_current_user)):
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    # Check if user with this login already exists
+    existing_user = (
+        db.query(models.User).filter(models.User.login == user.login).first()
+    )
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this login already exists",
+        )
+
+    if len(user.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long",
+        )
+
     user.password = utils.hash(user.password)
     new_user = models.User(**user.model_dump())
     db.add(new_user)

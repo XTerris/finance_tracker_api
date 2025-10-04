@@ -73,6 +73,9 @@ class Transaction(Base):
     done_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
+    updated_at = Column(
+        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"), onupdate=text("now()") 
+    )
 
     user = relationship("User")
     category = relationship("Category")

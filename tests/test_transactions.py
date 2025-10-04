@@ -1,4 +1,6 @@
 from app import models, schemas
+from datetime import datetime, timezone, timedelta
+from urllib.parse import quote
 
 
 def test_create_transaction(logged_client, test_categories, test_accounts):
@@ -65,19 +67,19 @@ def test_get_all_transactions(test_user, logged_client, test_transactions):
     res = logged_client.get("/transactions/")
     assert res.status_code == 200
     response_data = res.json()
-    
+
     # Check response structure
     assert "items" in response_data
     assert "pagination" in response_data
-    
+
     user_transactions = [
         trans for trans in test_transactions if trans.user_id == test_user["id"]
     ]
     assert len(response_data["items"]) == len(user_transactions)
-    
+
     # Validate transaction schema
     res_data = [schemas.Transaction(**trans) for trans in response_data["items"]]
-    
+
     # Validate pagination info
     pagination = response_data["pagination"]
     assert pagination["total"] == len(user_transactions)
@@ -274,17 +276,18 @@ def test_transaction_includes_account_info(logged_client, test_transactions):
 
 # New tests for pagination, sorting, and filtering
 
+
 def test_get_all_transactions_pagination(test_user, logged_client, test_transactions):
     """Test pagination with limit and offset"""
     # Test with small limit
     res = logged_client.get("/transactions/?limit=2&offset=0")
     assert res.status_code == 200
     response_data = res.json()
-    
+
     assert len(response_data["items"]) <= 2
     assert response_data["pagination"]["limit"] == 2
     assert response_data["pagination"]["offset"] == 0
-    
+
     # Test offset
     res = logged_client.get("/transactions/?limit=2&offset=1")
     assert res.status_code == 200
@@ -299,18 +302,18 @@ def test_get_all_transactions_sorting(test_user, logged_client, test_transaction
     assert res.status_code == 200
     response_data = res.json()
     items = response_data["items"]
-    
+
     if len(items) > 1:
         # Check that amounts are in ascending order
         amounts = [item["amount"] for item in items]
         assert amounts == sorted(amounts)
-    
+
     # Test sort by amount descending
     res = logged_client.get("/transactions/?sort_by=amount&sort_order=desc")
     assert res.status_code == 200
     response_data = res.json()
     items = response_data["items"]
-    
+
     if len(items) > 1:
         # Check that amounts are in descending order
         amounts = [item["amount"] for item in items]
@@ -323,25 +326,29 @@ def test_get_all_transactions_search(test_user, logged_client, test_transactions
     res = logged_client.get("/transactions/?search=Transaction")
     assert res.status_code == 200
     response_data = res.json()
-    
+
     # All returned transactions should contain the search term
     for item in response_data["items"]:
         assert "Transaction" in item["title"]
 
 
-def test_get_all_transactions_category_filter(test_user, logged_client, test_transactions, test_categories):
+def test_get_all_transactions_category_filter(
+    test_user, logged_client, test_transactions, test_categories
+):
     """Test category filtering"""
     category_id = test_categories[0].id
     res = logged_client.get(f"/transactions/?category_id={category_id}")
     assert res.status_code == 200
     response_data = res.json()
-    
+
     # All returned transactions should have the specified category
     for item in response_data["items"]:
         assert item["category_id"] == category_id
 
 
-def test_get_all_transactions_account_filter(test_user, logged_client, test_transactions, test_accounts):
+def test_get_all_transactions_account_filter(
+    test_user, logged_client, test_transactions, test_accounts
+):
     """Test account filtering"""
     # Get the user's first account
     user_accounts = [acc for acc in test_accounts if acc.user_id == test_user["id"]]
@@ -350,37 +357,39 @@ def test_get_all_transactions_account_filter(test_user, logged_client, test_tran
         res = logged_client.get(f"/transactions/?account_id={account_id}")
         assert res.status_code == 200
         response_data = res.json()
-        
+
         # All returned transactions should have the specified account
         for item in response_data["items"]:
             assert item["account_id"] == account_id
 
 
-def test_get_all_transactions_amount_filter(test_user, logged_client, test_transactions):
+def test_get_all_transactions_amount_filter(
+    test_user, logged_client, test_transactions
+):
     """Test amount range filtering"""
     # Test minimum amount filter
     res = logged_client.get("/transactions/?min_amount=100")
     assert res.status_code == 200
     response_data = res.json()
-    
+
     # All returned transactions should have amount >= 100
     for item in response_data["items"]:
         assert item["amount"] >= 100
-    
+
     # Test maximum amount filter
     res = logged_client.get("/transactions/?max_amount=1000")
     assert res.status_code == 200
     response_data = res.json()
-    
+
     # All returned transactions should have amount <= 1000
     for item in response_data["items"]:
         assert item["amount"] <= 1000
-    
+
     # Test range filter
     res = logged_client.get("/transactions/?min_amount=100&max_amount=1000")
     assert res.status_code == 200
     response_data = res.json()
-    
+
     # All returned transactions should be within range
     for item in response_data["items"]:
         assert 100 <= item["amount"] <= 1000
@@ -389,14 +398,14 @@ def test_get_all_transactions_amount_filter(test_user, logged_client, test_trans
 def test_get_all_transactions_date_filter(test_user, logged_client, test_transactions):
     """Test date range filtering"""
     from datetime import datetime, timedelta
-    
+
     # Test future date filter (should return no results for past transactions)
     future_date = (datetime.now() + timedelta(days=1)).isoformat()
     res = logged_client.get(f"/transactions/?from_date={future_date}")
     assert res.status_code == 200
     response_data = res.json()
     # Should return no transactions since all test transactions are in the past/present
-    
+
     # Test past date filter
     past_date = (datetime.now() - timedelta(days=30)).isoformat()
     res = logged_client.get(f"/transactions/?from_date={past_date}")
@@ -416,10 +425,14 @@ def test_get_all_transactions_invalid_sort_order(logged_client):
     assert res.status_code == 422  # Validation error
 
 
-def test_get_all_transactions_forbidden_category(test_users, logged_client, test_categories):
+def test_get_all_transactions_forbidden_category(
+    test_users, logged_client, test_categories
+):
     """Test access to forbidden category"""
     # Try to filter by a category that doesn't belong to the user
-    other_user_categories = [cat for cat in test_categories if cat.user_id != test_users[0]["id"]]
+    other_user_categories = [
+        cat for cat in test_categories if cat.user_id != test_users[0]["id"]
+    ]
     if other_user_categories:
         category_id = other_user_categories[0].id
         res = logged_client.get(f"/transactions/?category_id={category_id}")
@@ -427,12 +440,51 @@ def test_get_all_transactions_forbidden_category(test_users, logged_client, test
         assert res.json().get("detail") == "Not allowed"
 
 
-def test_get_all_transactions_forbidden_account(test_users, logged_client, test_accounts):
+def test_get_all_transactions_forbidden_account(
+    test_users, logged_client, test_accounts
+):
     """Test access to forbidden account"""
     # Try to filter by an account that doesn't belong to the user
-    other_user_accounts = [acc for acc in test_accounts if acc.user_id != test_users[0]["id"]]
+    other_user_accounts = [
+        acc for acc in test_accounts if acc.user_id != test_users[0]["id"]
+    ]
     if other_user_accounts:
         account_id = other_user_accounts[0].id
         res = logged_client.get(f"/transactions/?account_id={account_id}")
         assert res.status_code == 403
         assert res.json().get("detail") == "Not allowed"
+
+
+def test_get_updated_transactions_since(
+    logged_client,
+    test_transactions,
+    db_session,
+    test_user,
+):
+
+    baseline = datetime.now(timezone.utc)
+    baseline_param = quote(baseline.isoformat())
+
+    res = logged_client.get(f"/transactions/updated?updated_since={baseline_param}")
+    assert res.status_code == 200, res.json()
+    assert res.json() == []
+
+    update_payload = {"title": "Updated title"}
+    res_update = logged_client.put(
+        f"/transactions/{test_transactions[0].id}", json=update_payload
+    )
+    assert res_update.status_code == 200
+
+    other_transaction = next(
+        trans for trans in test_transactions if trans.user_id != test_user["id"]
+    )
+    db_session.query(models.Transaction).filter(
+        models.Transaction.id == other_transaction.id
+    ).update({"updated_at": baseline + timedelta(minutes=5)}, synchronize_session=False)
+    db_session.commit()
+
+    res = logged_client.get(f"/transactions/updated?updated_since={baseline_param}")
+    assert res.status_code == 200, res.json()
+    payload = res.json()
+    assert test_transactions[0].id in payload
+    assert other_transaction.id not in payload
