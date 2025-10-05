@@ -1,4 +1,5 @@
-.pytest_cache
 __pycache__
 .env*
 .github/*
+.pytest_cache
+.python-version
