@@ -84,40 +84,11 @@ def get_updated_transactions_since(
     return [row[0] for row in updated_ids]
 
 
-@router.get("/{id}", response_model=schemas.Transaction)
-def get_transaction(
-    id: int,
+@router.get("/filter", response_model=List[int])
+def get_transactions_by_filter(
     db: Session = Depends(get_db),
     user: models.User = Depends(oauth2.get_current_user),
-):
-    trans = (
-        db.query(models.Transaction)
-        .options(
-            joinedload(models.Transaction.category),
-            joinedload(models.Transaction.user),
-            joinedload(models.Transaction.account),
-        )
-        .filter(models.Transaction.id == id)
-        .first()
-    )
-    if trans == None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
-        )
-    if trans.user_id != user.id:  # type: ignore
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
-    return trans
-
-
-@router.get("/", response_model=schemas.TransactionListResponse)
-def get_all_transactions(
-    db: Session = Depends(get_db),
-    user: models.User = Depends(oauth2.get_current_user),
-    limit: int = 50,
-    offset: int = 0,
-    search: Optional[str] = "",
-    sort_by: str = Query("done_at", pattern="^(id|title|amount|done_at)$"),
-    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    search: Optional[str] = None,
     category_id: Optional[int] = None,
     account_id: Optional[int] = None,
     from_date: Optional[datetime] = None,
@@ -154,8 +125,55 @@ def get_all_transactions(
     if max_amount is not None:
         filters.append(models.Transaction.amount <= max_amount)
 
-    # Build the base query
-    base_query = db.query(models.Transaction).filter(and_(*filters))
+    # Get transaction IDs matching filters
+    transaction_ids = (
+        db.query(models.Transaction.id)
+        .filter(and_(*filters))
+        .order_by(models.Transaction.id)
+        .all()
+    )
+
+    return [row[0] for row in transaction_ids]
+
+
+@router.get("/{id}", response_model=schemas.Transaction)
+def get_transaction(
+    id: int,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(oauth2.get_current_user),
+):
+    trans = (
+        db.query(models.Transaction)
+        .options(
+            joinedload(models.Transaction.category),
+            joinedload(models.Transaction.user),
+            joinedload(models.Transaction.account),
+        )
+        .filter(models.Transaction.id == id)
+        .first()
+    )
+    if trans == None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
+        )
+    if trans.user_id != user.id:  # type: ignore
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+    return trans
+
+
+@router.get("/", response_model=schemas.TransactionListResponse)
+def get_all_transactions(
+    db: Session = Depends(get_db),
+    user: models.User = Depends(oauth2.get_current_user),
+    limit: int = 50,
+    offset: int = 0,
+    sort_by: str = Query("done_at", pattern="^(id|title|amount|done_at)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+):
+    # Build base query with user filter
+    base_query = db.query(models.Transaction).filter(
+        models.Transaction.user_id == user.id
+    )
 
     # Get total count for pagination
     total = base_query.count()

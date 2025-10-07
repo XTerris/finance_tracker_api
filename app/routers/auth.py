@@ -20,6 +20,7 @@ def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
+    print(login_data.password, user_data.password)
     if not utils.verify(login_data.password, user_data.password):  # type: ignore
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
