@@ -10,6 +10,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 SECRET_KEY = config.settings.SECRET_KEY
 ALGORITHM = config.settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = config.settings.ACCESS_TOKEN_EXPIRE_MINUTES
+REFRESH_TOKEN_EXPIRE_DAYS = config.settings.REFRESH_TOKEN_EXPIRE_DAYS
 
 
 def create_access_token(data: dict):
@@ -21,6 +22,15 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 
+def create_refresh_token(data: dict):
+    to_encode = data.copy()
+
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    to_encode.update({"exp": expire, "type": "refresh"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
 def verify_access_token(token: str, credentials_exception):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
@@ -28,6 +38,26 @@ def verify_access_token(token: str, credentials_exception):
         if id is None:
             raise credentials_exception
         token_data = schemas.TokenData(id=str(id))
+    except:
+        raise credentials_exception
+
+    return token_data
+
+
+def verify_refresh_token(token: str, credentials_exception):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
+
+        if payload.get("type") != "refresh":
+            raise credentials_exception
+
+        id: str = payload.get("user_id")
+        token_version: int = payload.get("token_version")
+
+        if id is None or token_version is None:
+            raise credentials_exception
+
+        token_data = schemas.TokenData(id=str(id), token_version=token_version)
     except:
         raise credentials_exception
 

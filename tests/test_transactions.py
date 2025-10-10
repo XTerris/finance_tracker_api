@@ -212,10 +212,13 @@ def test_update_transaction_not_allowed(
 def test_delete_transaction(logged_client, test_transactions, db_session):
     res = logged_client.delete(f"/transactions/{test_transactions[0].id}")
     assert res.status_code == 204
+    db_session.expire_all()
     trans_query = db_session.query(models.Transaction).filter(
         models.Transaction.id == test_transactions[0].id
     )
-    assert trans_query.first() == None
+    deleted_trans = trans_query.first()
+    assert deleted_trans is not None
+    assert deleted_trans.is_deleted == True
 
 
 def test_delete_transaction_unauthorized(client, test_transactions):
@@ -253,28 +256,6 @@ def test_update_transaction_category_only(
     assert new_trans.amount == test_transactions[0].amount
     assert new_trans.category_id == updated_trans["category_id"]
     assert new_trans.account_id == test_transactions[0].account_id
-
-
-def test_transaction_includes_category_info(logged_client, test_transactions):
-    res = logged_client.get(f"/transactions/{test_transactions[0].id}")
-    assert res.status_code == 200
-    transaction_data = res.json()
-    assert "category" in transaction_data
-    assert "id" in transaction_data["category"]
-    assert "name" in transaction_data["category"]
-
-
-def test_transaction_includes_account_info(logged_client, test_transactions):
-    res = logged_client.get(f"/transactions/{test_transactions[0].id}")
-    assert res.status_code == 200
-    transaction_data = res.json()
-    assert "account" in transaction_data
-    assert "id" in transaction_data["account"]
-    assert "name" in transaction_data["account"]
-    assert "balance" in transaction_data["account"]
-
-
-# New tests for pagination, sorting, and filtering
 
 
 def test_get_all_transactions_pagination(test_user, logged_client, test_transactions):
@@ -496,8 +477,17 @@ def test_get_updated_transactions_since(
     test_user,
 ):
 
+    # Set all test transactions to have old updated_at timestamps
+    old_time = datetime.now(timezone.utc) - timedelta(hours=1)
+    for trans in test_transactions:
+        db_session.query(models.Transaction).filter(
+            models.Transaction.id == trans.id
+        ).update({"updated_at": old_time}, synchronize_session=False)
+    db_session.commit()
+
+    # Set baseline to now (after the old timestamps)
     baseline = datetime.now(timezone.utc)
-    baseline_param = quote(baseline.isoformat())
+    baseline_param = int(baseline.timestamp())
 
     res = logged_client.get(f"/transactions/updated?updated_since={baseline_param}")
     assert res.status_code == 200, res.json()

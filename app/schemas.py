@@ -97,9 +97,7 @@ class Transaction(TransactionBase):
     
     id: int
     done_at: datetime
-    user: User
-    category: Category
-    account: Account
+    is_deleted: bool
 
 
 class Token(BaseModel):
@@ -107,8 +105,15 @@ class Token(BaseModel):
     token_type: str
 
 
+class TokenWithRefresh(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+
+
 class TokenData(BaseModel):
     id: Optional[str] = None
+    token_version: Optional[int] = None
 
 
 class GoalBase(BaseModel):
@@ -173,7 +178,6 @@ class PaginationInfo(BaseModel):
     limit: int
     offset: int
     has_next: bool
-    has_previous: bool
 
 
 class PaginatedResponse(BaseModel, Generic[T]):

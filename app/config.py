@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
-    
+
     DB_HOSTNAME: str
     DB_PORT: str
     DB_NAME: str
@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
+    REFRESH_TOKEN_EXPIRE_DAYS: int
 
 
-settings = Settings() # type: ignore
+settings = Settings()  # type: ignore

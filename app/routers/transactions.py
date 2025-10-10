@@ -62,24 +62,27 @@ def add_transaction(
 
 @router.get("/updated", response_model=List[int])
 def get_updated_transactions_since(
-    updated_since: datetime,
+    updated_since: int,
     db: Session = Depends(get_db),
     user: models.User = Depends(oauth2.get_current_user),
 ):
-    if updated_since.tzinfo is None:
-        updated_since = updated_since.replace(tzinfo=timezone.utc)
-    else:
-        updated_since = updated_since.astimezone(timezone.utc)
-
-    updated_ids = (
-        db.query(models.Transaction.id)
-        .filter(
-            models.Transaction.user_id == user.id,
-            models.Transaction.updated_at >= updated_since,
+    try:
+        updated_since = datetime.fromtimestamp(updated_since)  # type: ignore
+        updated_ids = (
+            db.query(models.Transaction.id)
+            .filter(
+                models.Transaction.user_id == user.id,
+                models.Transaction.updated_at >= updated_since,
+            )
+            .order_by(models.Transaction.updated_at.asc(), models.Transaction.id.asc())
+            .all()
         )
-        .order_by(models.Transaction.updated_at.asc(), models.Transaction.id.asc())
-        .all()
-    )
+    except Exception as e:
+        import logging
+
+        log = logging.getLogger("uvicorn.error")
+        log.error(e)
+        return []
 
     return [row[0] for row in updated_ids]
 
@@ -129,6 +132,7 @@ def get_transactions_by_filter(
     transaction_ids = (
         db.query(models.Transaction.id)
         .filter(and_(*filters))
+        .filter(models.Transaction.is_deleted == False)
         .order_by(models.Transaction.id)
         .all()
     )
@@ -144,15 +148,14 @@ def get_transaction(
 ):
     trans = (
         db.query(models.Transaction)
-        .options(
-            joinedload(models.Transaction.category),
-            joinedload(models.Transaction.user),
-            joinedload(models.Transaction.account),
-        )
-        .filter(models.Transaction.id == id)
-        .first()
+        # .options(
+        #     joinedload(models.Transaction.category),
+        #     joinedload(models.Transaction.user),
+        #     joinedload(models.Transaction.account),
+        # )
+        .filter(models.Transaction.id == id).first()
     )
-    if trans == None:
+    if trans == None or trans.is_deleted:  # type: ignore
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
         )
@@ -179,11 +182,12 @@ def get_all_transactions(
     total = base_query.count()
 
     # Build query with joins for data retrieval
-    query = base_query.options(
-        joinedload(models.Transaction.category),
-        joinedload(models.Transaction.user),
-        joinedload(models.Transaction.account),
-    )
+    query = base_query.filter(models.Transaction.is_deleted == False)
+    # query = base_query.options(
+    #     joinedload(models.Transaction.category),
+    #     joinedload(models.Transaction.user),
+    #     joinedload(models.Transaction.account),
+    # )
 
     # Add sorting
     sort_column = getattr(models.Transaction, sort_by)
@@ -201,7 +205,6 @@ def get_all_transactions(
         limit=limit,
         offset=offset,
         has_next=offset + limit < total,
-        has_previous=offset > 0,
     )
 
     return schemas.TransactionListResponse(
@@ -219,7 +222,7 @@ def update_transaction(
 ):
     put_query = db.query(models.Transaction).filter(models.Transaction.id == id)
     trans = put_query.first()
-    if trans == None:
+    if trans == None or trans.is_deleted:  # type: ignore
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transaction was not found"
         )
@@ -238,6 +241,7 @@ def update_transaction(
     for key in list(updated_data.keys()):
         if updated_data[key] == None:
             updated_data.pop(key)
+    updated_data["updated_at"] = datetime.now(timezone.utc)
     put_query.update(updated_data, synchronize_session=False)  # type: ignore
     db.commit()
 
@@ -269,6 +273,9 @@ def delete_transaction(
     if trans.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
 
-    delete_query.delete(synchronize_session=False)
+    delete_query.update(
+        {"is_deleted": True, "updated_at": datetime.now(timezone.utc)},
+        synchronize_session=False,
+    )
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

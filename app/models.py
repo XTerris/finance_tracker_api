@@ -21,6 +21,8 @@ class User(Base):
     username = Column(String, nullable=False)
     login = Column(String, nullable=False, unique=True)
     password = Column(String, nullable=False)
+    refresh_token = Column(String, nullable=True)
+    token_version = Column(Integer, nullable=False, default=0)
     created_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
@@ -74,8 +76,12 @@ class Transaction(Base):
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
     )
     updated_at = Column(
-        TIMESTAMP(timezone=True), nullable=False, server_default=text("now()"), onupdate=text("now()") 
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=text("now()"),
+        onupdate=text("now()"),
     )
+    is_deleted = Column(Boolean, nullable=False, default=False)
 
     user = relationship("User")
     category = relationship("Category")
