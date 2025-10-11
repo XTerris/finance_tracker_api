@@ -53,12 +53,12 @@ def test_users(client):
             "username": "test_username_2",
             "login": "test_login_2",
             "password": "test_password",
-        }
+        },
     ]
     for i in range(len(user_data)):
         res = client.post("/users/", json=user_data[i])
         assert res.status_code == 201
-        pwd = user_data[i]['password']
+        pwd = user_data[i]["password"]
         user_data[i] = res.json()
         user_data[i]["password"] = pwd
     return user_data
@@ -138,6 +138,7 @@ def test_transactions(test_users, test_categories, test_accounts, db_session):
         {
             "title": "Salary",
             "amount": 20000,
+            "is_income": True,
             "user_id": test_users[0]["id"],
             "category_id": test_categories[0].id,  # Income category
             "account_id": test_accounts[0].id,  # Checking Account
@@ -145,6 +146,7 @@ def test_transactions(test_users, test_categories, test_accounts, db_session):
         {
             "title": "Shopping",
             "amount": 2000,
+            "is_income": False,
             "user_id": test_users[0]["id"],
             "category_id": test_categories[1].id,  # Expenses category
             "account_id": test_accounts[1].id,  # Savings Account
@@ -152,6 +154,7 @@ def test_transactions(test_users, test_categories, test_accounts, db_session):
         {
             "title": "Taxes",
             "amount": 500,
+            "is_income": False,
             "user_id": test_users[1]["id"],
             "category_id": test_categories[2].id,  # Shopping category
             "account_id": test_accounts[2].id,  # Credit Card

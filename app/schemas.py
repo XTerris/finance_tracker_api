@@ -3,7 +3,7 @@ from typing import Optional, List, Generic, TypeVar
 from datetime import datetime, date as Date, timedelta
 
 # Generic type for pagination
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class UserBase(BaseModel):
@@ -27,7 +27,7 @@ class UserLogin(BaseModel):
 
 class User(UserBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     created_at: datetime
 
@@ -46,7 +46,7 @@ class CategoryUpdate(BaseModel):
 
 class Category(CategoryBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     user_id: Optional[int] = None
     created_at: datetime
@@ -68,7 +68,7 @@ class AccountUpdate(BaseModel):
 
 class Account(AccountBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     user_id: int
     created_at: datetime
@@ -77,6 +77,7 @@ class Account(AccountBase):
 class TransactionBase(BaseModel):
     title: str
     amount: float
+    is_income: bool
     category_id: int
     account_id: int
 
@@ -88,16 +89,16 @@ class TransactionCreate(TransactionBase):
 class TransactionUpdate(BaseModel):
     title: Optional[str] = None
     amount: Optional[float] = None
+    is_income: Optional[bool] = None
     category_id: Optional[int] = None
     account_id: Optional[int] = None
 
 
 class Transaction(TransactionBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     done_at: datetime
-    is_deleted: bool
 
 
 class Token(BaseModel):
@@ -135,7 +136,7 @@ class GoalUpdate(BaseModel):
 
 class Goal(GoalBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     user_id: int
     is_completed: bool
@@ -165,7 +166,7 @@ class ReminderUpdate(BaseModel):
 
 class Reminder(ReminderBase):
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     user_id: int
     is_active: bool

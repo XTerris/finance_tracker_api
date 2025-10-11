@@ -10,6 +10,36 @@ from ..database import get_db
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
+def update_account_balance(
+    account_id: int,
+    amount: float,
+    is_income: bool,
+    operation: str,  # 'add' or 'remove'
+    db: Session,
+):
+    """Update account balance based on transaction."""
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Account was not found"
+        )
+
+    # Income adds to balance, expense subtracts from balance
+    if is_income:
+        balance_change = amount if operation == "add" else -amount
+    else:  # Expense
+        balance_change = -amount if operation == "add" else amount
+
+    new_balance = account.balance + balance_change
+
+    db.query(models.Account).filter(models.Account.id == account_id).update(
+        {"balance": new_balance}, synchronize_session=False
+    )
+    db.commit()
+
+    return new_balance
+
+
 def validate_category_access(category_id: int, user_id: int, db: Session):
     """Validate that the user can access the specified category"""
     category = (
@@ -46,10 +76,8 @@ def add_transaction(
     db: Session = Depends(get_db),
     user: models.User = Depends(oauth2.get_current_user),
 ):
-    # Validate category access
     validate_category_access(trans.category_id, user.id, db)  # type: ignore
 
-    # Validate account access
     validate_account_access(trans.account_id, user.id, db)  # type: ignore
 
     new_trans = models.Transaction(**trans.model_dump())
@@ -57,6 +85,9 @@ def add_transaction(
     db.add(new_trans)
     db.commit()
     db.refresh(new_trans)
+
+    update_account_balance(trans.account_id, trans.amount, trans.is_income, "add", db)
+
     return new_trans
 
 
@@ -229,6 +260,11 @@ def update_transaction(
     if trans.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
 
+    # Store old values for balance adjustment
+    old_amount: float = trans.amount  # type: ignore
+    old_is_income: bool = trans.is_income  # type: ignore
+    old_account_id: int = trans.account_id  # type: ignore
+
     # If category_id is being updated, validate access
     if updated_trans.category_id is not None:
         validate_category_access(updated_trans.category_id, user.id, db)  # type: ignore
@@ -242,6 +278,40 @@ def update_transaction(
         if updated_data[key] == None:
             updated_data.pop(key)
     updated_data["updated_at"] = datetime.now(timezone.utc)
+
+    # Determine if balance needs updating
+    amount_changed = (
+        updated_trans.amount is not None and updated_trans.amount != old_amount
+    )
+    type_changed = (
+        updated_trans.is_income is not None and updated_trans.is_income != old_is_income
+    )
+    account_changed = (
+        updated_trans.account_id is not None
+        and updated_trans.account_id != old_account_id
+    )
+
+    if amount_changed or type_changed or account_changed:
+        # Remove old transaction impact from old account
+        update_account_balance(old_account_id, old_amount, old_is_income, "remove", db)
+
+        # Add new transaction impact to new account (or same account with new values)
+        new_amount = (
+            updated_trans.amount if updated_trans.amount is not None else old_amount
+        )
+        new_is_income = (
+            updated_trans.is_income
+            if updated_trans.is_income is not None
+            else old_is_income
+        )
+        new_account_id = (
+            updated_trans.account_id
+            if updated_trans.account_id is not None
+            else old_account_id
+        )
+
+        update_account_balance(new_account_id, new_amount, new_is_income, "add", db)
+
     put_query.update(updated_data, synchronize_session=False)  # type: ignore
     db.commit()
 
@@ -272,6 +342,12 @@ def delete_transaction(
         )
     if trans.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+
+    # Remove transaction impact from account balance
+    account_id: int = trans.account_id  # type: ignore
+    amount: float = trans.amount  # type: ignore
+    is_income: bool = trans.is_income  # type: ignore
+    update_account_balance(account_id, amount, is_income, "remove", db)
 
     delete_query.update(
         {"is_deleted": True, "updated_at": datetime.now(timezone.utc)},

@@ -7,6 +7,7 @@ def test_create_transaction(logged_client, test_categories, test_accounts):
     transaction_data = {
         "title": "New Transaction",
         "amount": 1500.0,
+        "is_income": False,
         "category_id": test_categories[0].id,
         "account_id": test_accounts[0].id,
     }
@@ -15,6 +16,7 @@ def test_create_transaction(logged_client, test_categories, test_accounts):
     new_transaction = schemas.Transaction(**res.json())
     assert new_transaction.title == transaction_data["title"]
     assert new_transaction.amount == transaction_data["amount"]
+    assert new_transaction.is_income == transaction_data["is_income"]
     assert new_transaction.category_id == transaction_data["category_id"]
     assert new_transaction.account_id == transaction_data["account_id"]
 
@@ -33,6 +35,7 @@ def test_create_transaction_invalid_account_id(logged_client, test_categories):
     transaction_data = {
         "title": "Transaction with Invalid Account",
         "amount": 1500.0,
+        "is_income": False,
         "category_id": test_categories[0].id,
         "account_id": 999999,  # Non-existent account
     }
@@ -55,6 +58,7 @@ def test_create_transaction_forbidden_account(
     transaction_data = {
         "title": "Transaction with Forbidden Account",
         "amount": 1500.0,
+        "is_income": False,
         "category_id": test_categories[0].id,
         "account_id": other_user_account.id,
     }
