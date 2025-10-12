@@ -77,9 +77,9 @@ class Account(AccountBase):
 class TransactionBase(BaseModel):
     title: str
     amount: float
-    is_income: bool
     category_id: int
-    account_id: int
+    from_account_id: Optional[int] = None
+    to_account_id: Optional[int] = None
 
 
 class TransactionCreate(TransactionBase):
@@ -89,9 +89,7 @@ class TransactionCreate(TransactionBase):
 class TransactionUpdate(BaseModel):
     title: Optional[str] = None
     amount: Optional[float] = None
-    is_income: Optional[bool] = None
     category_id: Optional[int] = None
-    account_id: Optional[int] = None
 
 
 class Transaction(TransactionBase):

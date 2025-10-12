@@ -138,26 +138,24 @@ def test_transactions(test_users, test_categories, test_accounts, db_session):
         {
             "title": "Salary",
             "amount": 20000,
-            "is_income": True,
             "user_id": test_users[0]["id"],
-            "category_id": test_categories[0].id,  # Income category
-            "account_id": test_accounts[0].id,  # Checking Account
+            "category_id": test_categories[0].id,
+            "from_account_id": test_accounts[0].id,
+            "to_account_id": test_accounts[1].id,
         },
         {
             "title": "Shopping",
             "amount": 2000,
-            "is_income": False,
             "user_id": test_users[0]["id"],
-            "category_id": test_categories[1].id,  # Expenses category
-            "account_id": test_accounts[1].id,  # Savings Account
+            "category_id": test_categories[1].id,
+            "from_account_id": test_accounts[1].id,
         },
         {
             "title": "Taxes",
             "amount": 500,
-            "is_income": False,
             "user_id": test_users[1]["id"],
-            "category_id": test_categories[2].id,  # Shopping category
-            "account_id": test_accounts[2].id,  # Credit Card
+            "category_id": test_categories[2].id,
+            "from_account_id": test_accounts[2].id,
         },
     ]
     db_session.add_all([Transaction(**trans) for trans in data])
@@ -171,23 +169,23 @@ def test_goals(test_users, test_accounts, db_session):
     data = [
         {
             "user_id": test_users[0]["id"],
-            "account_id": test_accounts[0].id,  # Checking Account
+            "account_id": test_accounts[0].id,
             "target_amount": 10000.0,
-            "deadline": date.today() + timedelta(days=365),  # 1 year from now
+            "deadline": date.today() + timedelta(days=365),
             "is_completed": False,
         },
         {
             "user_id": test_users[0]["id"],
-            "account_id": test_accounts[1].id,  # Savings Account
+            "account_id": test_accounts[1].id,
             "target_amount": 50000.0,
-            "deadline": date.today() + timedelta(days=730),  # 2 years from now
+            "deadline": date.today() + timedelta(days=730),
             "is_completed": True,
         },
         {
             "user_id": test_users[1]["id"],
-            "account_id": test_accounts[2].id,  # Credit Card (other user)
+            "account_id": test_accounts[2].id,
             "target_amount": 1000.0,
-            "deadline": date.today() + timedelta(days=90),  # 3 months from now
+            "deadline": date.today() + timedelta(days=90),
             "is_completed": False,
         },
     ]
@@ -205,7 +203,7 @@ def test_reminders(test_users, db_session):
             "title": "Pay rent",
             "amount": 1200.0,
             "date": date.today() + timedelta(days=30),
-            "recurrence": timedelta(days=30),  # Monthly
+            "recurrence": timedelta(days=30),
             "is_active": True,
         },
         {
@@ -213,7 +211,7 @@ def test_reminders(test_users, db_session):
             "title": "Electricity bill",
             "amount": 150.0,
             "date": date.today() + timedelta(days=7),
-            "recurrence": None,  # One-time
+            "recurrence": None,
             "is_active": True,
         },
         {

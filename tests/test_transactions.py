@@ -7,18 +7,16 @@ def test_create_transaction(logged_client, test_categories, test_accounts):
     transaction_data = {
         "title": "New Transaction",
         "amount": 1500.0,
-        "is_income": False,
         "category_id": test_categories[0].id,
-        "account_id": test_accounts[0].id,
+        "from_account_id": test_accounts[0].id,
     }
     res = logged_client.post("/transactions/", json=transaction_data)
     assert res.status_code == 201
     new_transaction = schemas.Transaction(**res.json())
     assert new_transaction.title == transaction_data["title"]
     assert new_transaction.amount == transaction_data["amount"]
-    assert new_transaction.is_income == transaction_data["is_income"]
     assert new_transaction.category_id == transaction_data["category_id"]
-    assert new_transaction.account_id == transaction_data["account_id"]
+    assert new_transaction.from_account_id == transaction_data["from_account_id"]
 
 
 def test_create_transaction_missing_account_id(logged_client, test_categories):
@@ -35,9 +33,8 @@ def test_create_transaction_invalid_account_id(logged_client, test_categories):
     transaction_data = {
         "title": "Transaction with Invalid Account",
         "amount": 1500.0,
-        "is_income": False,
         "category_id": test_categories[0].id,
-        "account_id": 999999,  # Non-existent account
+        "from_account_id": 999999,
     }
     res = logged_client.post("/transactions/", json=transaction_data)
     assert res.status_code == 404
@@ -58,9 +55,8 @@ def test_create_transaction_forbidden_account(
     transaction_data = {
         "title": "Transaction with Forbidden Account",
         "amount": 1500.0,
-        "is_income": False,
         "category_id": test_categories[0].id,
-        "account_id": other_user_account.id,
+        "from_account_id": other_user_account.id,
     }
     res = logged_client.post("/transactions/", json=transaction_data)
     assert res.status_code == 403
@@ -126,7 +122,6 @@ def test_update_transaction(
         "title": "new_title",
         "amount": 20000,
         "category_id": test_categories[1].id,
-        "account_id": test_accounts[0].id,
     }
     res = logged_client.put(
         f"/transactions/{test_transactions[0].id}", json=updated_trans
@@ -137,7 +132,6 @@ def test_update_transaction(
     assert new_trans.title == updated_trans["title"]
     assert new_trans.amount == updated_trans["amount"]
     assert new_trans.category_id == updated_trans["category_id"]
-    assert new_trans.account_id == updated_trans["account_id"]
 
 
 def test_update_transaction_title(logged_client, test_transactions):
@@ -151,7 +145,6 @@ def test_update_transaction_title(logged_client, test_transactions):
     assert new_trans.title == updated_trans["title"]
     assert new_trans.amount == test_transactions[0].amount
     assert new_trans.category_id == test_transactions[0].category_id
-    assert new_trans.account_id == test_transactions[0].account_id
 
 
 def test_update_transaction_amount(logged_client, test_transactions):
@@ -165,7 +158,6 @@ def test_update_transaction_amount(logged_client, test_transactions):
     assert new_trans.title == test_transactions[0].title
     assert new_trans.amount == updated_trans["amount"]
     assert new_trans.category_id == test_transactions[0].category_id
-    assert new_trans.account_id == test_transactions[0].account_id
 
 
 def test_update_transaction_validation_error(logged_client, test_transactions):
@@ -187,7 +179,7 @@ def test_update_transaction_non_existent(
         "title": "new_title",
         "amount": 20000,
         "category_id": test_categories[0].id,
-        "account_id": test_accounts[0].id,
+        "from_account_id": test_accounts[0].id,
     }
     res = logged_client.put("/transactions/123456", json=updated_trans)
     assert res.status_code == 404
@@ -259,7 +251,8 @@ def test_update_transaction_category_only(
     assert new_trans.title == test_transactions[0].title
     assert new_trans.amount == test_transactions[0].amount
     assert new_trans.category_id == updated_trans["category_id"]
-    assert new_trans.account_id == test_transactions[0].account_id
+    assert new_trans.from_account_id == test_transactions[0].from_account_id
+    assert new_trans.to_account_id == test_transactions[0].to_account_id
 
 
 def test_get_all_transactions_pagination(test_user, logged_client, test_transactions):
@@ -352,7 +345,7 @@ def test_get_all_transactions_account_filter(
     user_accounts = [acc for acc in test_accounts if acc.user_id == test_user["id"]]
     if user_accounts:
         account_id = user_accounts[0].id
-        res = logged_client.get(f"/transactions/filter?account_id={account_id}")
+        res = logged_client.get(f"/transactions/filter?from_account_id={account_id}")
         assert res.status_code == 200
         transaction_ids = res.json()
 
@@ -364,7 +357,7 @@ def test_get_all_transactions_account_filter(
             trans_res = logged_client.get(f"/transactions/{trans_id}")
             assert trans_res.status_code == 200
             transaction = trans_res.json()
-            assert transaction["account_id"] == account_id
+            assert transaction["from_account_id"] == account_id
 
 
 def test_get_all_transactions_amount_filter(
@@ -469,7 +462,7 @@ def test_get_all_transactions_forbidden_account(
     ]
     if other_user_accounts:
         account_id = other_user_accounts[0].id
-        res = logged_client.get(f"/transactions/filter?account_id={account_id}")
+        res = logged_client.get(f"/transactions/filter?from_account_id={account_id}")
         assert res.status_code == 403
         assert res.json().get("detail") == "Not allowed"
 

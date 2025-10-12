@@ -63,15 +63,13 @@ class Transaction(Base):
     id = Column(Integer, primary_key=True, nullable=False)
     title = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
-    is_income = Column(Boolean, nullable=False, default=False)
+    from_account_id = Column(Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=True)
+    to_account_id = Column(Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=True)
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     category_id = Column(
         Integer, ForeignKey("categories.id", ondelete="CASCADE"), nullable=False
-    )
-    account_id = Column(
-        Integer, ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
     )
     done_at = Column(
         TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")
@@ -86,7 +84,8 @@ class Transaction(Base):
 
     user = relationship("User")
     category = relationship("Category")
-    account = relationship("Account")
+    from_account = relationship("Account", foreign_keys=[from_account_id])
+    to_account = relationship("Account", foreign_keys=[to_account_id])
 
 
 class Goal(Base):

@@ -11,33 +11,28 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
 def update_account_balance(
-    account_id: int,
+    from_account_id: Optional[int],
+    to_account_id: Optional[int],
     amount: float,
-    is_income: bool,
-    operation: str,  # 'add' or 'remove'
     db: Session,
 ):
     """Update account balance based on transaction."""
-    account = db.query(models.Account).filter(models.Account.id == account_id).first()
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Account was not found"
-        )
-
-    # Income adds to balance, expense subtracts from balance
-    if is_income:
-        balance_change = amount if operation == "add" else -amount
-    else:  # Expense
-        balance_change = -amount if operation == "add" else amount
-
-    new_balance = account.balance + balance_change
-
-    db.query(models.Account).filter(models.Account.id == account_id).update(
-        {"balance": new_balance}, synchronize_session=False
+    from_account = (
+        db.query(models.Account).filter(models.Account.id == from_account_id).first()
     )
-    db.commit()
+    to_account = (
+        db.query(models.Account).filter(models.Account.id == to_account_id).first()
+    )
 
-    return new_balance
+    if from_account:
+        db.query(models.Account).filter(models.Account.id == from_account.id).update(
+            {"balance": from_account.balance - amount}, synchronize_session=False
+        )
+    if to_account:
+        db.query(models.Account).filter(models.Account.id == to_account.id).update(
+            {"balance": to_account.balance + amount}, synchronize_session=False
+        )
+    db.commit()
 
 
 def validate_category_access(category_id: int, user_id: int, db: Session):
@@ -76,9 +71,18 @@ def add_transaction(
     db: Session = Depends(get_db),
     user: models.User = Depends(oauth2.get_current_user),
 ):
-    validate_category_access(trans.category_id, user.id, db)  # type: ignore
 
-    validate_account_access(trans.account_id, user.id, db)  # type: ignore
+    if not trans.from_account_id and not trans.to_account_id or trans.from_account_id == trans.to_account_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="At least one account (from_account_id or to_account_id) must be specified",
+        )
+
+    validate_category_access(trans.category_id, user.id, db)  # type: ignore
+    if trans.from_account_id:
+        validate_account_access(trans.from_account_id, user.id, db)  # type: ignore
+    if trans.to_account_id:
+        validate_account_access(trans.to_account_id, user.id, db)  # type: ignore
 
     new_trans = models.Transaction(**trans.model_dump())
     new_trans.user_id = user.id
@@ -86,7 +90,7 @@ def add_transaction(
     db.commit()
     db.refresh(new_trans)
 
-    update_account_balance(trans.account_id, trans.amount, trans.is_income, "add", db)
+    update_account_balance(trans.from_account_id, trans.to_account_id, trans.amount, db)
 
     return new_trans
 
@@ -124,7 +128,8 @@ def get_transactions_by_filter(
     user: models.User = Depends(oauth2.get_current_user),
     search: Optional[str] = None,
     category_id: Optional[int] = None,
-    account_id: Optional[int] = None,
+    from_account_id: Optional[int] = None,
+    to_account_id: Optional[int] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     min_amount: Optional[float] = None,
@@ -143,9 +148,12 @@ def get_transactions_by_filter(
         filters.append(models.Transaction.category_id == category_id)
 
     # Account filter
-    if account_id is not None:
-        validate_account_access(account_id, user.id, db)  # type: ignore
-        filters.append(models.Transaction.account_id == account_id)
+    if from_account_id is not None:
+        validate_account_access(from_account_id, user.id, db)  # type: ignore
+        filters.append(models.Transaction.from_account_id == from_account_id)
+    if to_account_id is not None:
+        validate_account_access(to_account_id, user.id, db)  # type: ignore
+        filters.append(models.Transaction.to_account_id == to_account_id)
 
     # Date range filters
     if from_date is not None:
@@ -262,16 +270,10 @@ def update_transaction(
 
     # Store old values for balance adjustment
     old_amount: float = trans.amount  # type: ignore
-    old_is_income: bool = trans.is_income  # type: ignore
-    old_account_id: int = trans.account_id  # type: ignore
 
     # If category_id is being updated, validate access
     if updated_trans.category_id is not None:
         validate_category_access(updated_trans.category_id, user.id, db)  # type: ignore
-
-    # If account_id is being updated, validate access
-    if updated_trans.account_id is not None:
-        validate_account_access(updated_trans.account_id, user.id, db)  # type: ignore
 
     updated_data = updated_trans.model_dump()
     for key in list(updated_data.keys()):
@@ -279,38 +281,16 @@ def update_transaction(
             updated_data.pop(key)
     updated_data["updated_at"] = datetime.now(timezone.utc)
 
-    # Determine if balance needs updating
-    amount_changed = (
-        updated_trans.amount is not None and updated_trans.amount != old_amount
-    )
-    type_changed = (
-        updated_trans.is_income is not None and updated_trans.is_income != old_is_income
-    )
-    account_changed = (
-        updated_trans.account_id is not None
-        and updated_trans.account_id != old_account_id
-    )
+    new_amount = updated_trans.amount is not None and updated_trans.amount != old_amount
 
-    if amount_changed or type_changed or account_changed:
+    if new_amount:
         # Remove old transaction impact from old account
-        update_account_balance(old_account_id, old_amount, old_is_income, "remove", db)
-
-        # Add new transaction impact to new account (or same account with new values)
-        new_amount = (
-            updated_trans.amount if updated_trans.amount is not None else old_amount
+        update_account_balance(
+            trans.from_account_id,  # type: ignore
+            trans.to_account_id,  # type: ignore
+            new_amount - old_amount,
+            db,
         )
-        new_is_income = (
-            updated_trans.is_income
-            if updated_trans.is_income is not None
-            else old_is_income
-        )
-        new_account_id = (
-            updated_trans.account_id
-            if updated_trans.account_id is not None
-            else old_account_id
-        )
-
-        update_account_balance(new_account_id, new_amount, new_is_income, "add", db)
 
     put_query.update(updated_data, synchronize_session=False)  # type: ignore
     db.commit()
@@ -318,13 +298,12 @@ def update_transaction(
     # Return updated transaction with relationships
     return (
         db.query(models.Transaction)
-        .options(
-            joinedload(models.Transaction.category),
-            joinedload(models.Transaction.user),
-            joinedload(models.Transaction.account),
-        )
-        .filter(models.Transaction.id == id)
-        .first()
+        # .options(
+        #     joinedload(models.Transaction.category),
+        #     joinedload(models.Transaction.user),
+        #     joinedload(models.Transaction.account),
+        # )
+        .filter(models.Transaction.id == id).first()
     )
 
 
@@ -343,11 +322,12 @@ def delete_transaction(
     if trans.user_id != user.id:  # type: ignore
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
 
-    # Remove transaction impact from account balance
-    account_id: int = trans.account_id  # type: ignore
-    amount: float = trans.amount  # type: ignore
-    is_income: bool = trans.is_income  # type: ignore
-    update_account_balance(account_id, amount, is_income, "remove", db)
+    update_account_balance(
+        trans.from_account_id,  # type: ignore
+        trans.to_account_id,  # type: ignore
+        -trans.amount,  # type: ignore
+        db,
+    )
 
     delete_query.update(
         {"is_deleted": True, "updated_at": datetime.now(timezone.utc)},
